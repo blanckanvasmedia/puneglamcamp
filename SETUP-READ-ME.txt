@@ -1,0 +1,27 @@
+PUNE GLAM CAMP: SAFE INTERIM PATCH — NOT AUTOMATIC VERIFICATION
+
+Website: https://puneglamcamp.blanckanvas.in
+Razorpay Payment Page ID: pl_Sv6MPglxSfTvQP
+Payment URL: https://rzp.io/rzp/08VeAGUM
+Expected amount: INR 5,500
+
+WHAT WAS FIXED
+- Kept index.html and its existing registration, design, logos and Razorpay link unchanged.
+- Removed the unsafe Meta Purchase event from thank-you.html and thank-you/index.html.
+- Thank-you pages now tell visitors that the team's confirmation depends on verified Razorpay payment.
+- Meta PageView remains; no Purchase event is reported before secure server-side verification.
+
+HOW TO DEPLOY ON EXISTING VERCEL PROJECT
+- Deploy this folder to the EXISTING Vercel project (not a new project).
+- Your custom domain stays assigned to the project, so no GoDaddy DNS changes are necessary.
+- If you lack a Vercel source connection, use Vercel CLI: in this directory run `vercel link` and choose your existing project, then `vercel --prod`.
+
+NEXT STEPS FOR REAL AUTOMATIC PAYMENT VERIFICATION (NOT YET IMPLEMENTED)
+1. Create a server-side endpoint on Vercel and configure an authenticated storage/database for registration and transaction records.
+2. Set Razorpay Payment Page webhook(s) on the correct merchant account; verify Razorpay's webhook signature against a secret stored only as a Vercel environment variable.
+3. Validate captured successful payment status, INR 5500 amount, the Payment Page ID, and enforce unique payment ID/idempotency.
+4. Create a registration-to-payment reference/matching mechanism; current form uses only browser sessionStorage.
+5. Configure Razorpay's post-success redirect only after the verified status route exists. Avoid directly linking a public thank-you page to Purchase pixels.
+6. For Meta later, send Purchase only for verified successful payments and deduplicate by transaction/event ID.
+
+Never put Razorpay API secrets or webhook secrets in HTML or in chat.
