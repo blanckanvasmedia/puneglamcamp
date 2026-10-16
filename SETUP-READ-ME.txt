@@ -1,27 +1,70 @@
-PUNE GLAM CAMP: SAFE INTERIM PATCH — NOT AUTOMATIC VERIFICATION
+PUNE GLAM CAMP: SAFE PAYMENT & TRACKING CONFIGURATION GUIDE
 
 Website: https://puneglamcamp.blanckanvas.in
+GitHub Repo: https://github.com/blanckanvasmedia/puneglamcamp
+Hosting: Vercel
 Razorpay Payment Page ID: pl_Sv6MPglxSfTvQP
-Payment URL: https://rzp.io/rzp/08VeAGUM
-Expected amount: INR 5,500
+Razorpay Payment URL: https://rzp.io/rzp/08VeAGUM
+Registration Amount: INR 5,500
+Dates: 31 October – 1 November 2026
 
-WHAT WAS FIXED
-- Kept index.html and its existing registration, design, logos and Razorpay link unchanged.
-- Removed the unsafe Meta Purchase event from thank-you.html and thank-you/index.html.
-- Thank-you pages now tell visitors that the team's confirmation depends on verified Razorpay payment.
-- Meta PageView remains; no Purchase event is reported before secure server-side verification.
+--------------------------------------------------------------------------------
+1. CODE CHANGES COMPLETED
+--------------------------------------------------------------------------------
+- index.html:
+  * Google Tag (AW-440238541) added inside <head>.
+  * Meta Pixel (ID: 582955268888858) PageView tracking preserved.
+  * Form registration flow, content, pricing, and Razorpay payment link intact.
 
-HOW TO DEPLOY ON EXISTING VERCEL PROJECT
-- Deploy this folder to the EXISTING Vercel project (not a new project).
-- Your custom domain stays assigned to the project, so no GoDaddy DNS changes are necessary.
-- If you lack a Vercel source connection, use Vercel CLI: in this directory run `vercel link` and choose your existing project, then `vercel --prod`.
+- thank-you/index.html & thank-you.html:
+  * Redesigned to match the Mumbai Workshop Thank You page aesthetic:
+    - Dark theme (#080808) with burgundy/pink radial gradients.
+    - Centred card (.frame) with gradient border accent and clean typography.
+    - Premium circular checkmark icon badge.
+    - Event details adapted: 31 October – 1 November 2026 · Pune.
+    - Short, professional wording matching the brand aesthetic.
+  * Google Tag (AW-440238541) added inside <head>.
+  * Meta Pixel PageView preserved.
+  * Google Ads Purchase conversion (AW-11039093669/HusQCPjo7Z0dEKXn7I8p) included but explicitly DISABLED / COMMENTED OUT with comprehensive warnings.
+  * Merely visiting or refreshing the Thank You page does NOT trigger any Purchase conversion.
 
-NEXT STEPS FOR REAL AUTOMATIC PAYMENT VERIFICATION (NOT YET IMPLEMENTED)
-1. Create a server-side endpoint on Vercel and configure an authenticated storage/database for registration and transaction records.
-2. Set Razorpay Payment Page webhook(s) on the correct merchant account; verify Razorpay's webhook signature against a secret stored only as a Vercel environment variable.
-3. Validate captured successful payment status, INR 5500 amount, the Payment Page ID, and enforce unique payment ID/idempotency.
-4. Create a registration-to-payment reference/matching mechanism; current form uses only browser sessionStorage.
-5. Configure Razorpay's post-success redirect only after the verified status route exists. Avoid directly linking a public thank-you page to Purchase pixels.
-6. For Meta later, send Purchase only for verified successful payments and deduplicate by transaction/event ID.
+--------------------------------------------------------------------------------
+2. GOOGLE ADS ID VERIFICATION FLAG
+--------------------------------------------------------------------------------
+- Base Google Tag ID: AW-440238541 (Installed & Active for PageViews)
+- Conversion Destination: AW-11039093669/HusQCPjo7Z0dEKXn7I8p (Disabled)
+- FLAG FOR MANUAL CHECK: Note the difference in Google Ads IDs:
+  The global site tag uses AW-440238541, while the conversion action uses AW-11039093669.
+  Verify with your Google Ads account manager whether these are linked accounts or if the conversion destination should belong to AW-440238541.
 
-Never put Razorpay API secrets or webhook secrets in HTML or in chat.
+--------------------------------------------------------------------------------
+3. RAZORPAY DASHBOARD CONFIGURATION (MANUAL ACTIONS REQUIRED)
+--------------------------------------------------------------------------------
+1. Log in to Razorpay Dashboard (https://dashboard.razorpay.com/) using the approved merchant account.
+2. Navigate to Payment Pages -> Find the Pune Glam Camp page ("pl_Sv6MPglxSfTvQP" / https://rzp.io/rzp/08VeAGUM).
+3. Verify Payment Amount:
+   Confirm the fixed registration fee is set to ₹5,500.
+4. Verify Post-Payment Redirect:
+   In Payment Page settings -> "Page Settings" / "Action after payment":
+   - Select "Redirect to your website".
+   - Enter Redirect URL: https://puneglamcamp.blanckanvas.in/thank-you/
+5. Business Model / Domain Approval:
+   Razorpay previously flagged a business-model deviation/domain approval issue for Pune.
+   - Go to Settings -> Business Profile / Activation.
+   - Ensure "puneglamcamp.blanckanvas.in" is declared and approved as an authorized business domain.
+   - If a compliance ticket or re-KYC notice is pending, contact Razorpay support to confirm merchant approval.
+
+--------------------------------------------------------------------------------
+4. SECURE PAYMENT VERIFICATION ARCHITECTURE (NEXT STEPS)
+--------------------------------------------------------------------------------
+A static Thank You page cannot securely prove payment authenticity. To trigger true Purchase conversions:
+1. Server-side Endpoint: Implement a Vercel Serverless Function (e.g., /api/verify-payment or /api/razorpay-webhook).
+2. Webhook Validation:
+   - Configure a webhook in Razorpay Dashboard for payment.captured or order.paid.
+   - Verify the X-Razorpay-Signature header using crypto.createHmac with a RAZORPAY_WEBHOOK_SECRET stored in Vercel environment variables.
+3. Validate Payload:
+   - Verify amount == 550000 paise (₹5,500).
+   - Verify status == 'captured'.
+   - Verify currency == 'INR'.
+4. Server-Side Tracking:
+   - Send conversion event to Meta Conversions API (CAPI) and Google Ads Measurement Protocol using the real razorpay_payment_id as transaction_id to deduplicate.
