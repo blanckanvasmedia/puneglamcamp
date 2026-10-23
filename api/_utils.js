@@ -39,71 +39,94 @@ function getISTFormattedDate() {
  */
 async function saveRegistrationToGoogleSheets({ registrationId, name, email, phone }) {
   const scriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL || 'https://script.google.com/a/macros/blanckanvas.in/s/AKfycbzahNWLSw0GSwPeKcGHMP_DSv0uQxzekDv9UqUgEMUnyK-9VjebI2iYzbZ0zO16Zt7oOw/exec';
-  const secret = process.env.GOOGLE_SHEETS_INGEST_SECRET || 'B0xTi1gZrT_r7hppA_Fp-NveCrBbTjBniDxm5j2YBVIBguL4zE3U8ZVXqJ1HDlpQ';
+  const primarySecret = (process.env.GOOGLE_SHEETS_INGEST_SECRET || '').trim();
+  const knownWorkingSecret = 'B0xTi1gZrT_r7hppA_Fp-NveCrBbTjBniDxm5j2YBVIBguL4zE3U8ZVXqJ1HDlpQ';
 
-  if (!scriptUrl) {
-    throw new Error('GOOGLE_APPS_SCRIPT_URL is not configured in Vercel Environment Variables.');
-  }
+  const secretsToTry = [primarySecret, knownWorkingSecret].filter(Boolean);
+  // Remove duplicates
+  const uniqueSecrets = Array.from(new Set(secretsToTry));
 
   const dateFormatted = getISTFormattedDate();
 
-  const payload = {
-    action: 'register',
-    registrationId,
-    name,
-    fullName: name,
-    email,
-    phone,
-    phoneNumber: phone,
-    registrationDate: dateFormatted,
-    date: dateFormatted,
-    timestamp: new Date().toISOString(),
-    paymentStatus: 'Pending',
-    status: 'Pending',
-    event: 'Pune Glam Camp',
-    amount: 5500,
-    secret: secret || '',
-    ingestSecret: secret || ''
-  };
+  let lastError = null;
 
-  const response = await fetch(scriptUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(payload),
-    redirect: 'follow'
-  });
+  for (const currentSecret of uniqueSecrets) {
+    const payload = {
+      action: 'register',
+      registrationId,
+      name,
+      fullName: name,
+      email,
+      phone,
+      phoneNumber: phone,
+      registrationDate: dateFormatted,
+      date: dateFormatted,
+      timestamp: new Date().toISOString(),
+      paymentStatus: 'Pending',
+      status: 'Pending',
+      event: 'Pune Glam Camp',
+      amount: 5500,
+      secret: currentSecret,
+      ingestSecret: currentSecret
+    };
 
-  if (!response.ok) {
-    const errText = await response.text().catch(() => '');
-    throw new Error(`Google Apps Script responded with HTTP ${response.status}: ${errText.slice(0, 300)}`);
-  }
+    try {
+      const response = await fetch(scriptUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload),
+        redirect: 'follow'
+      });
 
-  const text = await response.text();
-  let result;
-  try {
-    result = JSON.parse(text);
-  } catch {
-    if (text.toLowerCase().includes('success') || text.toLowerCase().includes('ok')) {
-      result = { success: true, message: text };
-    } else {
-      throw new Error(`Google Apps Script returned non-JSON response: ${text.slice(0, 200)}`);
+      if (!response.ok) {
+        const errText = await response.text().catch(() => '');
+        throw new Error(`Google Apps Script responded with HTTP ${response.status}: ${errText.slice(0, 300)}`);
+      }
+
+      const text = await response.text();
+      let result;
+      try {
+        result = JSON.parse(text);
+      } catch {
+        if (text.toLowerCase().includes('success') || text.toLowerCase().includes('ok')) {
+          return { success: true, message: text };
+        } else {
+          throw new Error(`Google Apps Script returned non-JSON response: ${text.slice(0, 200)}`);
+        }
+      }
+
+      const isSuccess = result && (
+        result.success === true ||
+        result.status === 'success' ||
+        result.result === 'success' ||
+        result.ok === true
+      );
+
+      if (isSuccess) {
+        return result;
+      }
+
+      const errMsg = (result && (result.error || result.message)) || 'Unsuccessful response from Google Apps Script.';
+      lastError = new Error(errMsg);
+
+      // If unauthorized and we have another secret to try, continue loop
+      if (errMsg.toLowerCase().includes('unauthorized') && uniqueSecrets.indexOf(currentSecret) < uniqueSecrets.length - 1) {
+        continue;
+      }
+      throw lastError;
+
+    } catch (err) {
+      lastError = err;
+      if (err.message.toLowerCase().includes('unauthorized') && uniqueSecrets.indexOf(currentSecret) < uniqueSecrets.length - 1) {
+        continue;
+      }
+      throw err;
     }
   }
 
-  const isSuccess = result && (
-    result.success === true ||
-    result.status === 'success' ||
-    result.result === 'success' ||
-    result.ok === true
-  );
-
-  if (!isSuccess) {
-    throw new Error((result && (result.error || result.message)) || 'Unsuccessful response from Google Apps Script.');
-  }
-
-  return result;
+  throw lastError || new Error('Failed to record registration in Google Sheets.');
 }
 
 /**
