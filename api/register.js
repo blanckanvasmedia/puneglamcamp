@@ -50,7 +50,8 @@ module.exports = async function handler(req, res) {
     const cleanPhone = phone.trim();
 
     // 2. Check Google Apps Script configuration
-    if (!process.env.GOOGLE_APPS_SCRIPT_URL) {
+    const scriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL || 'https://script.google.com/a/macros/blanckanvas.in/s/AKfycbzahNWLSw0GSwPeKcGHMP_DSv0uQxzekDv9UqUgEMUnyK-9VjebI2iYzbZ0zO16Zt7oOw/exec';
+    if (!scriptUrl) {
       return res.status(503).json({
         error: 'Registration backend not configured. Missing GOOGLE_APPS_SCRIPT_URL in Vercel.',
         code: 'APPS_SCRIPT_NOT_CONFIGURED'
