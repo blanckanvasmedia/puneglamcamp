@@ -109,7 +109,7 @@ async function saveRegistrationToGoogleSheets({ registrationId, name, email, pho
       }
 
       const errMsg = (result && (result.error || result.message)) || 'Unsuccessful response from Google Apps Script.';
-      lastError = new Error(`${errMsg} [URL: ${scriptUrl.slice(0, 35)}... / secretLen: ${currentSecret ? currentSecret.length : 0}]`);
+      lastError = new Error(errMsg);
 
       // If unauthorized and we have another secret to try, continue loop
       if (errMsg.toLowerCase().includes('unauthorized') && uniqueSecrets.indexOf(currentSecret) < uniqueSecrets.length - 1) {

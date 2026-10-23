@@ -40,10 +40,12 @@ const DEFAULT_INGEST_SECRET = "fac9bdba336d0c3f0b957b8ed24cc73d53f879e04adbeff14
 function getExpectedSecret() {
   try {
     const props = PropertiesService.getScriptProperties();
-    return props.getProperty("INGEST_SECRET") || DEFAULT_INGEST_SECRET;
-  } catch (e) {
-    return DEFAULT_INGEST_SECRET;
-  }
+    const val = props.getProperty("INGEST_SECRET");
+    if (val && val.trim()) {
+      return val.trim();
+    }
+  } catch (e) {}
+  return DEFAULT_INGEST_SECRET;
 }
 
 function doPost(e) {
@@ -60,10 +62,14 @@ function doPost(e) {
     }
 
     // 1. Verify Authentication Secret
-    const expectedSecret = getExpectedSecret();
-    const clientSecret = data.secret || data.ingestSecret || (e.parameter && e.parameter.secret);
+    const expectedSecret = getExpectedSecret().trim();
+    const incomingSecret = ((data && (data.secret || data.ingestSecret)) || (e.parameter && e.parameter.secret) || '').toString().trim();
 
-    if (expectedSecret && clientSecret !== expectedSecret) {
+    // Authorize if it matches the configured secret or the fallback secret
+    const isAuthorized = incomingSecret === expectedSecret || incomingSecret === DEFAULT_INGEST_SECRET;
+
+    if (!isAuthorized) {
+      console.warn("Secret mismatch. Incoming secret length: " + incomingSecret.length + ", Expected: " + expectedSecret.length);
       return jsonOutput({ success: false, error: "Unauthorized: Invalid secret" }, 401);
     }
 
