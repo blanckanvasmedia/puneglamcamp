@@ -38,9 +38,9 @@ function getISTFormattedDate() {
  * Strictly verifies that Google Apps Script responds with success before proceeding.
  */
 async function saveRegistrationToGoogleSheets({ registrationId, name, email, phone }) {
-  const scriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL || 'https://script.google.com/a/macros/blanckanvas.in/s/AKfycbzahNWLSw0GSwPeKcGHMP_DSv0uQxzekDv9UqUgEMUnyK-9VjebI2iYzbZ0zO16Zt7oOw/exec';
+  const scriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbwic3ZGvI15CwNDkHdyeE0urtta2GAu3Iexe_SoUbUZc-aFN-M1rIaBFdfxC1J_JO4W/exec';
   const primarySecret = (process.env.GOOGLE_SHEETS_INGEST_SECRET || '').trim();
-  const knownWorkingSecret = 'B0xTi1gZrT_r7hppA_Fp-NveCrBbTjBniDxm5j2YBVIBguL4zE3U8ZVXqJ1HDlpQ';
+  const knownWorkingSecret = 'fac9bdba336d0c3f0b957b8ed24cc73d53f879e04adbeff143de76b1db0a5c63';
 
   const secretsToTry = [primarySecret, knownWorkingSecret].filter(Boolean);
   // Remove duplicates
@@ -109,7 +109,7 @@ async function saveRegistrationToGoogleSheets({ registrationId, name, email, pho
       }
 
       const errMsg = (result && (result.error || result.message)) || 'Unsuccessful response from Google Apps Script.';
-      lastError = new Error(errMsg);
+      lastError = new Error(`${errMsg} [URL: ${scriptUrl.slice(0, 35)}... / secretLen: ${currentSecret ? currentSecret.length : 0}]`);
 
       // If unauthorized and we have another secret to try, continue loop
       if (errMsg.toLowerCase().includes('unauthorized') && uniqueSecrets.indexOf(currentSecret) < uniqueSecrets.length - 1) {

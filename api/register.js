@@ -50,7 +50,7 @@ module.exports = async function handler(req, res) {
     const cleanPhone = phone.trim();
 
     // 2. Check Google Apps Script configuration
-    const scriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL || 'https://script.google.com/a/macros/blanckanvas.in/s/AKfycbzahNWLSw0GSwPeKcGHMP_DSv0uQxzekDv9UqUgEMUnyK-9VjebI2iYzbZ0zO16Zt7oOw/exec';
+    const scriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbwic3ZGvI15CwNDkHdyeE0urtta2GAu3Iexe_SoUbUZc-aFN-M1rIaBFdfxC1J_JO4W/exec';
     if (!scriptUrl) {
       return res.status(503).json({
         error: 'Registration backend not configured. Missing GOOGLE_APPS_SCRIPT_URL in Vercel.',
