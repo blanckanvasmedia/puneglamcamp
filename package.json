@@ -1,0 +1,9 @@
+{
+  "name": "bk-edu-pune-glam-camp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BK EDU by Minaaz Pune Glam Camp Website with Vercel Analytics and Google Sheets Registration Tracking",
+  "scripts": {
+    "start": "npx serve ."
+  }
+}
