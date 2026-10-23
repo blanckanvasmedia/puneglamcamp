@@ -35,7 +35,7 @@
  */
 
 // Fallback secret if not set in Script Properties
-const DEFAULT_INGEST_SECRET = "B0xTi1gZrT_r7hppA_Fp-NveCrBbTjBniDxm5j2YBVIBguL4zE3U8ZVXqJ1HDlpQ";
+const DEFAULT_INGEST_SECRET = "fac9bdba336d0c3f0b957b8ed24cc73d53f879e04adbeff143de76b1db0a5c63";
 
 function getExpectedSecret() {
   try {
