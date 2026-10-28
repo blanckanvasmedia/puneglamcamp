@@ -6,12 +6,13 @@
  * This Google Apps Script connects your Pune Glam Camp website directly to your
  * Google Sheet, recording each student registration securely.
  *
- * EXACT 5 VISIBLE COLUMNS IN SHEET:
+ * EXACT 6 VISIBLE COLUMNS IN SHEET:
  * Column A: Name
  * Column B: Email
  * Column C: Phone Number
  * Column D: Registration Date
  * Column E: Payment Status (Default: "Pending")
+ * Column F: Lead Source  (e.g., "Instagram", "Facebook", "Direct / Unknown")
  *
  * DEPLOYMENT INSTRUCTIONS:
  * 1. Open your Google Sheet for Pune Glam Camp.
@@ -73,19 +74,21 @@ function doPost(e) {
       return jsonOutput({ success: false, error: "Unauthorized: Invalid secret" }, 401);
     }
 
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = getTargetSheet(ss);
     setupSheetHeaderIfEmpty(sheet);
 
     const action = data.action || 'register';
 
     // Action 1: Register Student
     if (action === 'register') {
-      const name = (data.name || data.fullName || '').toString().trim();
-      const email = (data.email || '').toString().trim().toLowerCase();
-      const phone = (data.phone || data.phoneNumber || '').toString().trim();
-      const date = (data.registrationDate || data.date || getFormattedCurrentISTDate()).toString().trim();
+      const name         = (data.name || data.fullName || '').toString().trim();
+      const email        = (data.email || '').toString().trim().toLowerCase();
+      const phone        = (data.phone || data.phoneNumber || '').toString().trim();
+      const date         = (data.registrationDate || data.date || getFormattedCurrentISTDate()).toString().trim();
       const paymentStatus = (data.paymentStatus || data.status || 'Pending').toString().trim();
-      const regId = (data.registrationId || '').toString().trim();
+      const regId        = (data.registrationId || '').toString().trim();
+      const leadSource   = (data.leadSource || '').toString().trim();
 
       if (!name || !email || !phone) {
         return jsonOutput({ success: false, error: "Name, email, and phone number are required." }, 400);
@@ -96,8 +99,8 @@ function doPost(e) {
       let existingRow = -1;
 
       if (lastRow > 1) {
-        // Read columns: [Name, Email, Phone Number, Registration Date, Payment Status]
-        const values = sheet.getRange(2, 1, lastRow - 1, 5).getValues();
+        // Read all 6 columns: [Name, Email, Phone Number, Registration Date, Payment Status, Lead Source]
+        const values = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
         const cleanIncomingPhone = phone.replace(/[^0-9]/g, '');
 
         for (let i = 0; i < values.length; i++) {
@@ -127,6 +130,11 @@ function doPost(e) {
           sheet.getRange(existingRow, 5).setValue(paymentStatus);
         }
 
+        // Update Lead Source only if the existing cell is blank
+        if (leadSource && !sheet.getRange(existingRow, 6).getValue()) {
+          sheet.getRange(existingRow, 6).setValue(leadSource);
+        }
+
         return jsonOutput({
           success: true,
           registrationId: regId,
@@ -136,9 +144,9 @@ function doPost(e) {
         });
       }
 
-      // Append new student record to Google Sheet (exactly 5 columns)
-      // Name | Email | Phone Number | Registration Date | Payment Status
-      sheet.appendRow([name, email, phone, date, paymentStatus]);
+      // Append new student record to Google Sheet (6 columns)
+      // Name | Email | Phone Number | Registration Date | Payment Status | Lead Source
+      sheet.appendRow([name, email, phone, date, paymentStatus, leadSource]);
 
       return jsonOutput({
         success: true,
@@ -150,13 +158,13 @@ function doPost(e) {
 
     // Action 2: Update Payment Status (for later verified Razorpay confirmation)
     if (action === 'updatePayment') {
-      const email = (data.email || '').toString().trim().toLowerCase();
-      const phone = (data.phone || data.phoneNumber || '').toString().trim().replace(/[^0-9]/g, '');
+      const email    = (data.email || '').toString().trim().toLowerCase();
+      const phone    = (data.phone || data.phoneNumber || '').toString().trim().replace(/[^0-9]/g, '');
       const newStatus = (data.paymentStatus || data.status || 'Paid').toString().trim();
 
       const lastRow = sheet.getLastRow();
       if (lastRow > 1) {
-        const values = sheet.getRange(2, 1, lastRow - 1, 5).getValues();
+        const values = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
         for (let i = 0; i < values.length; i++) {
           const rowEmail = (values[i][1] || '').toString().trim().toLowerCase();
           const rowPhone = (values[i][2] || '').toString().trim().replace(/[^0-9]/g, '');
@@ -178,19 +186,70 @@ function doPost(e) {
 }
 
 /**
- * Health check endpoint for verifying deployment via GET
+ * Health check endpoint for verifying deployment via GET.
+ * Opening this URL in your browser shows the EXACT spreadsheet and tab being written to!
  */
 function doGet(e) {
-  return jsonOutput({
-    status: "ok",
-    service: "BK EDU Pune Glam Camp Google Sheets Ingestion Service",
-    columns: ["Name", "Email", "Phone Number", "Registration Date", "Payment Status"],
-    timestamp: new Date().toISOString()
-  });
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheets = ss.getSheets();
+    const tabInfo = sheets.map(function(s) {
+      return {
+        tabName: s.getName(),
+        rowCount: s.getLastRow(),
+        columnCount: s.getLastColumn()
+      };
+    });
+
+    const activeSheet = ss.getActiveSheet() || sheets[0];
+    let lastRowValues = [];
+    if (activeSheet.getLastRow() > 1) {
+      lastRowValues = activeSheet.getRange(activeSheet.getLastRow(), 1, 1, Math.min(activeSheet.getLastColumn(), 6)).getValues()[0];
+    }
+
+    return jsonOutput({
+      status: "ok",
+      spreadsheetName: ss.getName(),
+      spreadsheetUrl: ss.getUrl(),
+      activeTabName: activeSheet.getName(),
+      allTabs: tabInfo,
+      lastRowData: lastRowValues,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    return jsonOutput({
+      status: "error",
+      error: err.toString(),
+      timestamp: new Date().toISOString()
+    });
+  }
 }
 
 /**
- * Ensures the Google Sheet has the exact 5 visible columns requested
+ * Finds the correct tab in the spreadsheet (searches for tab with "Name" header, or defaults to first tab)
+ */
+function getTargetSheet(ss) {
+  const sheets = ss.getSheets();
+  if (!sheets || sheets.length === 0) return ss.getActiveSheet();
+  if (sheets.length === 1) return sheets[0];
+
+  // Look for the tab that already contains student registration columns
+  for (let i = 0; i < sheets.length; i++) {
+    if (sheets[i].getLastRow() > 0) {
+      const firstCell = sheets[i].getRange(1, 1).getValue().toString().trim().toLowerCase();
+      if (firstCell === 'name' || firstCell.includes('name')) {
+        return sheets[i];
+      }
+    }
+  }
+
+  // Fallback to active sheet or first sheet
+  return ss.getActiveSheet() || sheets[0];
+}
+
+/**
+ * Ensures the Google Sheet has the exact 6 visible columns.
+ * NOTE: If your sheet already has data, manually add "Lead Source" as the header in cell F1.
  */
 function setupSheetHeaderIfEmpty(sheet) {
   if (sheet.getLastRow() === 0) {
@@ -199,7 +258,8 @@ function setupSheetHeaderIfEmpty(sheet) {
       "Email",
       "Phone Number",
       "Registration Date",
-      "Payment Status"
+      "Payment Status",
+      "Lead Source"
     ];
     sheet.appendRow(headers);
 

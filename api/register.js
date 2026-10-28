@@ -69,7 +69,13 @@ module.exports = async function handler(req, res) {
         registrationId,
         name: cleanName,
         email: cleanEmail,
-        phone: cleanPhone
+        phone: cleanPhone,
+        utm_source,
+        utm_medium,
+        utm_campaign,
+        utm_term,
+        utm_content,
+        referrer
       });
       console.log(`Registration ${registrationId} saved to Google Sheets as Pending`);
     } catch (sheetErr) {

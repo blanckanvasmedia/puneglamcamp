@@ -29,15 +29,63 @@ function getISTFormattedDate() {
 }
 
 /**
+ * Derive a human-readable Lead Source label from UTM parameters and referrer URL.
+ *
+ * Priority:
+ *  1. utm_source   (e.g. "instagram", "facebook", "google")
+ *  2. Referrer URL (e.g. l.instagram.com → "Instagram", facebook.com → "Facebook")
+ *  3. Falls back to "Direct / Unknown"
+ */
+function deriveLeadSource({ utm_source = '', utm_medium = '', utm_campaign = '', referrer = '' } = {}) {
+  const src = (utm_source || '').toLowerCase().trim();
+  const ref = (referrer || '').toLowerCase();
+
+  // Map common utm_source values to readable labels
+  const sourceMap = {
+    instagram: 'Instagram',
+    ig:        'Instagram',
+    insta:     'Instagram',
+    facebook:  'Facebook',
+    fb:        'Facebook',
+    google:    'Google',
+    youtube:   'YouTube',
+    yt:        'YouTube',
+    whatsapp:  'WhatsApp',
+    wa:        'WhatsApp',
+    twitter:   'Twitter / X',
+    x:         'Twitter / X',
+    linkedin:  'LinkedIn',
+    email:     'Email',
+    sms:       'SMS',
+    organic:   'Organic Search',
+    direct:    'Direct'
+  };
+
+  if (src && sourceMap[src]) return sourceMap[src];
+  if (src) return src.charAt(0).toUpperCase() + src.slice(1); // capitalise unknown utm_source
+
+  // Fallback: parse referrer domain
+  if (ref.includes('instagram.com') || ref.includes('l.instagram'))   return 'Instagram';
+  if (ref.includes('facebook.com') || ref.includes('fb.com'))         return 'Facebook';
+  if (ref.includes('google.com') || ref.includes('google.co'))        return 'Google';
+  if (ref.includes('youtube.com'))                                     return 'YouTube';
+  if (ref.includes('whatsapp.com') || ref.includes('wa.me'))          return 'WhatsApp';
+  if (ref.includes('twitter.com') || ref.includes('t.co') || ref.includes('x.com')) return 'Twitter / X';
+  if (ref.includes('linkedin.com'))                                    return 'LinkedIn';
+
+  return 'Direct / Unknown';
+}
+
+/**
  * Save student registration to Google Sheets via Google Apps Script Web App.
  *
- * Keeps only 5 visible Google Sheet columns:
- * Name | Email | Phone Number | Registration Date | Payment Status
+ * Google Sheet columns (6 total):
+ * Name | Email | Phone Number | Registration Date | Payment Status | Lead Source
  *
  * Sets Payment Status to 'Pending' initially.
  * Strictly verifies that Google Apps Script responds with success before proceeding.
  */
-async function saveRegistrationToGoogleSheets({ registrationId, name, email, phone }) {
+async function saveRegistrationToGoogleSheets({ registrationId, name, email, phone, utm_source = '', utm_medium = '', utm_campaign = '', utm_term = '', utm_content = '', referrer = '' }) {
   const scriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbwic3ZGvI15CwNDkHdyeE0urtta2GAu3Iexe_SoUbUZc-aFN-M1rIaBFdfxC1J_JO4W/exec';
   const primarySecret = (process.env.GOOGLE_SHEETS_INGEST_SECRET || '').trim();
   const knownWorkingSecret = 'fac9bdba336d0c3f0b957b8ed24cc73d53f879e04adbeff143de76b1db0a5c63';
@@ -47,6 +95,7 @@ async function saveRegistrationToGoogleSheets({ registrationId, name, email, pho
   const uniqueSecrets = Array.from(new Set(secretsToTry));
 
   const dateFormatted = getISTFormattedDate();
+  const leadSource = deriveLeadSource({ utm_source, utm_medium, utm_campaign, referrer });
 
   let lastError = null;
 
@@ -66,6 +115,13 @@ async function saveRegistrationToGoogleSheets({ registrationId, name, email, pho
       status: 'Pending',
       event: 'Pune Glam Camp',
       amount: 5500,
+      leadSource,
+      utm_source,
+      utm_medium,
+      utm_campaign,
+      utm_term,
+      utm_content,
+      referrer,
       secret: currentSecret,
       ingestSecret: currentSecret
     };
@@ -198,6 +254,7 @@ async function createRazorpayOrder({ amount, currency = 'INR', receipt, notes = 
 module.exports = {
   generateRegistrationId,
   getISTFormattedDate,
+  deriveLeadSource,
   saveRegistrationToGoogleSheets,
   updatePaymentInGoogleSheets,
   createRazorpayOrder
